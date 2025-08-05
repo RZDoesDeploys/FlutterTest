@@ -16,13 +16,16 @@ jobs:
     name: Build & Release
     runs-on: macos-latest
     steps:
+      # Checkout source
       - uses: actions/checkout@v3
 
+      # Setup Java (needed for Android)
       - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
 
+      # Setup Flutter
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
@@ -31,25 +34,31 @@ jobs:
       # Build Android APKs
       - run: flutter build apk --release --split-per-abi
 
-      # Build iOS (no signing)
+      # Build iOS (Physical Device) for IPA
       - run: flutter build ios --no-codesign
 
-      # Create IPA (as before)
+      # Package IPA (Physical Device Build)
       - run: |
           cd build/ios/iphoneos
           mkdir Payload
           cp -R Runner.app Payload/
           zip -r app.ipa Payload
 
-      # Create Appetize-compatible ZIP (zips .app directly)
+      # Build iOS (Simulator) for Appetize
+      - run: flutter build ios --simulator
+
+      # Package Appetize-compatible ZIP (Simulator Build)
       - run: |
-          cd build/ios/iphoneos
+          cd build/ios/iphonesimulator
           zip -r appetize.zip Runner.app
 
-      # Push artifacts to GitHub Releases
+      # Upload all artifacts to GitHub Releases
       - name: Push to Releases
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/apk/release/*,build/ios/iphoneos/app.ipa,build/ios/iphoneos/appetize.zip"
+          artifacts: |
+            build/app/outputs/apk/release/*,
+            build/ios/iphoneos/app.ipa,
+            build/ios/iphonesimulator/appetize.zip
           tag: v1.0.${{ github.run_number }}
           token: ${{ secrets.TOKEN }}
